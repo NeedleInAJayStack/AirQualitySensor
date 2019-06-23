@@ -3,7 +3,7 @@
 /******************************************************/
 
 #include "application.h"
-#line 1 "/home/jay/dev/particle/AirQuality/src/AirQuality.ino"
+#line 1 "/home/jay/dev/particle/AirQualitySensor/src/AirQuality.ino"
 
 // BELOW THIS LINE IS THE CCS811 TEST CODE
 
