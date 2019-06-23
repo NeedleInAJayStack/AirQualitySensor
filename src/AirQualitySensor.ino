@@ -66,6 +66,7 @@ void loop() {
 
   // Read ccs811
   if(ccs811.available()){
+    ccs811.setEnvironmentalData(humidity, temperature);
     ccs811.readData();
 
     eco2 = ccs811.geteCO2();
