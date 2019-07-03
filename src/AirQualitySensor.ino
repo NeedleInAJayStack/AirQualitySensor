@@ -26,6 +26,7 @@ double temperature;
 double humidity;
 double eco2;
 double tvoc;
+uint32_t timeEnvSet;
 
 void setup() {
   Serial.begin(9600);
@@ -50,6 +51,7 @@ void setup() {
   while(!ccs811.available());
   // Set environmental data on ccs811 using si7021 readings
   ccs811.setEnvironmentalData(humidity, temperature);
+  timeEnvSet = Time.now();
 }
 
 void loop() {
@@ -62,26 +64,37 @@ void loop() {
   Serial.print(temperature, 2);
   Serial.print("C, Humidity: ");
   Serial.print(humidity, 2);
-  Serial.println("%RH, ");
+  Serial.println("%RH");
 
   // Read ccs811
   if(ccs811.available()){
-    ccs811.setEnvironmentalData(humidity, temperature);
-    ccs811.readData();
 
-    eco2 = ccs811.geteCO2();
-    tvoc = ccs811.getTVOC();
+    if(Time.now() - timeEnvSet > 60) { // Set environmental data every minute
+      ccs811.setEnvironmentalData(humidity, temperature);
+      timeEnvSet = Time.now();
+      Serial.println("Environmental data set");
+    }
 
-    Serial.print("CO2: ");
-    Serial.print(eco2);
-    Serial.print("ppm, TVOC: ");
-    Serial.print(tvoc);
-    Serial.println("ppb");
+    uint8_t errorCode = ccs811.readData();
+    if(errorCode == 0) {
+      eco2 = ccs811.geteCO2();
+      tvoc = ccs811.getTVOC();
+
+      Serial.print("CO2: ");
+      Serial.print(eco2);
+      Serial.print("ppm, TVOC: ");
+      Serial.print(tvoc);
+      Serial.println("ppb");
+    }
+    else {
+      Serial.print("CCS811 error code: ");
+      Serial.println(errorCode);
+    }
   }
   else{
     Serial.println("ccs811 Sensor Unavailable!");
   }
-
-
-  delay(1000); // Usually can't run faster than 1sec or else ccs811 sensor becomes unavailable.
+  
+  Serial.println("---");
+  delay(1000); // CCS811 sensor only provides readings every 1sec.
 }
