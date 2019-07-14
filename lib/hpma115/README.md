@@ -1,9 +1,6 @@
 Honeywell HPMA115
 ===============
 
-Taken from here: https://bitbucket.org/circuitdojo/particle-squared-code/src/master/
-
-
 HPMA Datasheet
 https://sensing.honeywell.com/honeywell-sensing-particulate-hpm-series-datasheet-32322550
 
@@ -17,10 +14,20 @@ Pins (from right to left):
 7. RX: UART RX input (0 V - 3.3 V)
 8. GND: ground
 
+HPMA <-> Particle Pins
+* Vcc (2) <-> USB
+* TX (6) <-> RX
+* RX (7) <-> TX
+* GND (8) <-> GND
 
-This connects through the Serial1 interface (TX/RX pins)
+
+This connects through the Serial1 interface (TX/RX pins). As such, long delays in the loop should be avoided, since it must monitor Serial 
+for the expected starting characters.
 
 Documentation: https://docs.particle.io/reference/device-os/firmware/photon/#serial
 Serial examples: 
 * https://community.particle.io/t/serial-tutorial/26946
 * https://community.particle.io/t/read-from-rx-tx-pins/26375/2
+
+Example of firmware:
+* https://bitbucket.org/circuitdojo/particle-squared-code/src/master/

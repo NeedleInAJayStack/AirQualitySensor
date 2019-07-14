@@ -1,162 +1,93 @@
 /*
- * Project Particle Squared
- * Description: Particle powered PM2.5 and air quality sensor
- * Author: Jared Wolff
- * Date: 2/26/2019
- * License: GNU GPLv3
+ * Description: Honeywell HPMA115SO sensor w/ standard connector. See readme for more details
+ * Author: Jay Herron
+ * Date: 7/14/2019
  */
 
 #include "hpma115.h"
 
-HPMA115::HPMA115(void){}
-
-uint32_t HPMA115::setup(hpma115_init_t *p_init) {
-
+HPMA115::HPMA115(void){
   // Set up serial
   Serial1.begin(HPMA115_BAUD);
-
-  // Set up callback
-  this->callback = p_init->callback;
-
-  // Set enable pin
-  this->enable_pin = p_init->enable_pin;
-
-  // Set rx count to 0
-  this->rx_count = 0;
-
-  // Stop device
-  this->disable();
-
-  return HPMA115_SUCCESS;
 }
 
-uint32_t HPMA115::enable(){
+/*
+ * Reads the data from the Serial1 stream. Returns:
+ * 
+ * 0: Data processed succesfully
+ * 1: Could not find start
+ * 2: Not enough data available yet.
+ * 2: Checksums don't agree
+ */
+int HPMA115::readData() {
+  // Exit if we are not at the start, and cannot find it.
+  if(!atStart) readToStart();
+  if(!atStart) return 1;
 
-  // set gpio high
-  pinMode(this->enable_pin, OUTPUT);
-  digitalWrite(this->enable_pin, HIGH); // Has a pulldown
+  // Exit if we don't have enough data to read a full message.
+  if(Serial1.available() < 30) return 2;
 
-  if( this->state == DISABLED ) {
-    this->state = READY;
+  // Read the data.
+  Serial1.readBytes(dataBuf+2, 30);
+
+  // Check the checksum
+  uint16_t calc_checksum = 0;
+  for(int i = 0; i < 30; i++) { // The checksum is computed by summing bytes 0 to 30
+    calc_checksum += dataBuf[i];
+  }
+  uint16_t data_checksum = (dataBuf[30] << 8) + dataBuf[31];
+  if(calc_checksum != data_checksum) {
+    return 4;
   }
 
-  return HPMA115_SUCCESS;
-}
-uint32_t HPMA115::disable() {
+  // Read and save the values
+  pm25 = (dataBuf[6] << 8) + dataBuf[7];
+  pm10 = (dataBuf[8] << 8) + dataBuf[9];
 
-  // Disable device
-  pinMode(this->enable_pin, INPUT);
-  this->state = DISABLED;
+  // Clean out the data buffer
+  memset(dataBuf,0,32);
 
-  // Reset rx count
-  this->rx_count = 0;
-
-  return HPMA115_SUCCESS;
+  // Verify that we are at the start on the next iteration in case we miss a message.
+  atStart = false; 
+  return 0;
 }
 
-void HPMA115::int_handler() {
+/*
+ * Reads the existing stream until there are no more available items or it matches the start sequence.
+ * 
+ * If the start is found, the 'atStart' variable is set to true, the Serial buffer will begin after the
+ *  start sequence and the data buffer is cleared and filled with the start sequence.
+ */
+void HPMA115::readToStart(){
+  int availableBytes = Serial1.available();
+  if(availableBytes < 2) return; // Wait until we have at least 2 bytes to determine where we are in the stream
 
-  // If we are ready, change state
-  if ( this->state == READY ) {
-    this->state = DATA_AVAILABLE;
-  }
-
-}
-
-bool HPMA115::is_enabled() {
-
-  // If we are ready, change state
-  if ( getPinMode(this->enable_pin) == OUTPUT ) {
-    return true;
-  } else {
-    return false;
-  }
-
-}
-
-void HPMA115::process() {
-
-    // First read
-    if( this->state == DATA_AVAILABLE && Serial1.available() >= 2 ) {
-
-      // Erase the rx_buf
-      memset(this->rx_buf,0,32);
-
-      // Read first byte in
-      this->rx_buf[0] = Serial1.read();
-
-      // Make sure first byte is equal otherwise return
-      if( this->rx_buf[0] != 0x42 ) {
-        return;
+  // Find the start in the available bytes. Start is indicated by: 0x42, 0x4d
+  bool foundStart = false;
+  int index = 0;
+  while(index < availableBytes && !foundStart){
+    int val = Serial1.read();
+    if(val == 0x42) {
+      int secondVal = Serial1.read();
+      if(secondVal == 0x4d) {
+        foundStart = true;
       }
-
-      // Reaad the second byte in
-      this->rx_buf[1] = Serial1.read();
-
-      // Confirm its value
-      if( this->rx_buf[1] == 0x4d ) {
-        this->state = DATA_READ;
-      }
-
     }
+    index = index + 1;
+  }
+  if(foundStart) {
+    atStart = true;
 
-    // Read remaining bytes
-    if( this->state == DATA_READ && Serial1.available() >= 30) {
-      // Then read
-      Serial1.readBytes(this->rx_buf+2,30);
+    // Prepare data buffer by cleaning and filling in with start sequence
+    dataBuf[0] = 0x42;
+    dataBuf[1] = 0x4d;
+  }
+}
 
-      uint16_t calc_checksum = 0;
+uint16_t HPMA115::getPM25() {
+  return pm25;
+}
 
-      // Calculate the checksum
-      for( int i = 0; i < 30; i++ ) {
-        calc_checksum += this->rx_buf[i];
-      }
-
-      // Un-serialize checksum from data
-      uint16_t data_checksum = (this->rx_buf[30] << 8) + this->rx_buf[31];
-
-      // Serial.printf("%x %x\n",calc_checksum,data_checksum);
-
-      // Make sure the calculated and the provided are the same
-      // or, make sure we've collected a few data points before
-      // sending the data
-      if ( calc_checksum != data_checksum ) {
-
-        Serial.println("hpma: checksum fail");
-        Particle.publish("err", "hpma: checksum" , PRIVATE, NO_ACK);
-
-        this->state = READY;
-        return;
-      }
-
-      // Increment the valid rx count
-      this->rx_count++;
-
-      // Take another reading. Minimum of HPMA115_READING_CNT readings
-      if ( this->rx_count < HPMA115_READING_CNT ) {
-
-        // Go right to read or go to ready state if no data
-        if( Serial1.available() > 0 ) {
-          this->state = DATA_AVAILABLE;
-        } else {
-          this->state = READY;
-        }
-
-        return;
-      }
-
-      // Reset this
-      this->rx_count = 0;
-
-      // Combine the serialized data
-      this->data.pm25 = (this->rx_buf[6] << 8) + this->rx_buf[7];
-      this->data.pm10 = (this->rx_buf[8] << 8) + this->rx_buf[9];
-
-      // Callback
-      this->callback(&this->data);
-
-      // State is back to ready
-      this->state = READY;
-
-    }
+uint16_t HPMA115::getPM10() {
+  return pm10;
 }
