@@ -1,17 +1,17 @@
 // CCS811 Wiring
 //
-// Connect Vin to 3-5VDC
-// Connect GND to ground
-// Connect SCL to I2C clock pin
-// Connect SDA to I2C data pin
-// Connect WAKE to ground
+// Vin <-> 3V3
+// GND <-> GND
+// SCL <-> I2C clock pin
+// SDA <-> I2C data pin
+// WAKE <-> GND
 //
 // SI7021 Wiring
 //
-// Connect Vin to 3-5VDC
-// Connect GND to ground
-// Connect SCL to I2C clock pin
-// Connect SDA to I2C data pin
+// Vin <-> 3V3
+// GND <-> GND
+// SCL <-> I2C clock pin
+// SDA <-> I2C data pin
 //
 // HPMA Wiring
 //
@@ -19,36 +19,36 @@
 // TX (6) <-> RX
 // RX (7) <-> TX
 // GND (8) <-> GND
+//
+// Photosensor
+// Short pin <-> 3V3
+// Long pin <-> A5, GND(through 220 Ohm resistor)
 
 #include "Adafruit_CCS811.h"
 #include "Adafruit_Si7021.h"
 #include "hpma115.h"
 
-// Static objects
 static Adafruit_Si7021 si7021 = Adafruit_Si7021();
 static Adafruit_CCS811 ccs811 = Adafruit_CCS811();
 static HPMA115 hpma115 = HPMA115();
+static int photoPin = A5;
 
 // Record last-read and update intervals
-long si7021ReadTime;
-int si7021Interval = 1000;
-long ccs811ReadTime;
-int ccs811Interval = 1000;
-long hpma115ReadTime;
-int hpma115Interval = 1000;
-
-// Time tracking for ccs811 environmental settings
+long dataReadTime;
+int dataInterval = 1000;
 long ccs811EnvSetTime;
 int ccs811EnvInterval = 60000;
 
 bool hmpa115NewData;
 
+// Data variables
 double temperature;
 double humidity;
-double eco2;
-double tvoc;
-double pm25;
-double pm10;
+int eco2;
+int tvoc;
+int pm25;
+int pm10;
+int light;
 
 
 void setup() {
@@ -61,6 +61,7 @@ void setup() {
   Particle.variable("tvoc", tvoc);
   Particle.variable("pm25", pm25);
   Particle.variable("pm10", pm10);
+  Particle.variable("light", light);
 
   // Setup si7021
   si7021.begin();
@@ -78,8 +79,7 @@ void setup() {
   ccs811.setEnvironmentalData(humidity, temperature);
   
   // Set time intervals
-  si7021ReadTime = millis();
-  ccs811ReadTime = millis();
+  dataReadTime = millis();
   ccs811EnvSetTime = millis();
 }
 
@@ -92,20 +92,17 @@ void serialEvent1() {
 void loop() {
 
   // Read si7021
-  if(millis() - si7021ReadTime > si7021Interval) {
+  if(millis() - dataReadTime > dataInterval) {
     temperature = si7021.readTemperature();
     humidity = si7021.readHumidity();
-    si7021ReadTime = millis();
 
     Serial.print("Temperature: ");
     Serial.print(temperature, 2);
     Serial.print("C, Humidity: ");
     Serial.print(humidity, 2);
     Serial.println("%RH");
-  }
 
-  // Read ccs811
-  if(millis() - ccs811ReadTime > ccs811Interval){
+    // Read ccs811
     if(ccs811.available()) {
       if(millis() - ccs811EnvSetTime > ccs811EnvInterval) { // Set environmental data every minute
         ccs811.setEnvironmentalData(humidity, temperature);
@@ -132,23 +129,26 @@ void loop() {
     else{
       Serial.println("ccs811 Sensor Unavailable!");
     }
-    ccs811ReadTime = millis();
-  }
 
-  // Read HPMA115
-  if(millis() - hpma115ReadTime > hpma115Interval){
+    // Read HPMA115
     if(hmpa115NewData) {
       pm25 = hpma115.getPM25();
       pm10 = hpma115.getPM10();
       hmpa115NewData = false;
     }
-
     Serial.print("PM2.5: ");
     Serial.print(pm25);
     Serial.print("microgram/m^3, PM10: ");
     Serial.print(pm10);
     Serial.println("microgram/m^3");
 
-    hpma115ReadTime = millis();
+    // Read Photosensor
+    light = analogRead(photoPin);
+    Serial.print("Light: ");
+    Serial.println(light);
+
+
+    Serial.println("---");
+    dataReadTime = millis();
   }
 }
