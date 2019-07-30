@@ -50,6 +50,13 @@ int pm25;
 int pm10;
 int light;
 
+// Limits
+int eco2ValidMin = 400;
+int eco2ValidMax = 8192;
+int tvocValidMin = 0;
+int tvocValidMax = 1187;
+
+
 
 void setup() {
   Serial.begin(9600);
@@ -90,17 +97,14 @@ void serialEvent1() {
 }
 
 void loop() {
-
-  // Read si7021
+  // Only read data on correct intervals
   if(millis() - dataReadTime > dataInterval) {
+    
+    // Read si7021
     temperature = si7021.readTemperature();
     humidity = si7021.readHumidity();
-
-    Serial.print("Temperature: ");
-    Serial.print(temperature, 2);
-    Serial.print("C, Humidity: ");
-    Serial.print(humidity, 2);
-    Serial.println("%RH");
+    Serial.print("Temperature: "); Serial.print(temperature, 2); Serial.println("C");
+    Serial.print("Humidity: "); Serial.print(humidity, 2); Serial.println("%RH");
 
     // Read ccs811
     if(ccs811.available()) {
@@ -112,14 +116,24 @@ void loop() {
 
       uint8_t errorCode = ccs811.readData();
       if(errorCode == 0) {
-        eco2 = ccs811.geteCO2();
-        tvoc = ccs811.getTVOC();
-
-        Serial.print("CO2: ");
-        Serial.print(eco2);
-        Serial.print("ppm, TVOC: ");
-        Serial.print(tvoc);
-        Serial.println("ppb");
+        uint16_t eco2_temp = ccs811.geteCO2();
+        uint16_t tvoc_temp = ccs811.getTVOC();
+        
+        // Check validity
+        if(eco2ValidMin <= eco2_temp && eco2_temp <= eco2ValidMax) {
+          eco2 = eco2_temp;
+          Serial.print("CO2: "); Serial.print(eco2); Serial.println("ppm");
+        }
+        else {
+          Serial.print("CO2 reading out of bounds: "); Serial.println(tempCo2);
+        }
+        if(tvocValidMin <= tvoc_temp && tvoc_temp <= tvocValidMax) {
+          tvoc = tvoc_temp;
+          Serial.print("TVOC: "); Serial.print(tvoc); Serial.println("ppb");
+        }
+        else {
+          Serial.print("TVOC reading out of bounds: "); Serial.println(tempCo2);
+        }
       }
       else {
         Serial.print("CCS811 error code: ");
@@ -127,7 +141,7 @@ void loop() {
       }
     }
     else{
-      Serial.println("ccs811 Sensor Unavailable!");
+      Serial.println("CCS811 Sensor Unavailable!");
     }
 
     // Read HPMA115
@@ -136,17 +150,12 @@ void loop() {
       pm10 = hpma115.getPM10();
       hmpa115NewData = false;
     }
-    Serial.print("PM2.5: ");
-    Serial.print(pm25);
-    Serial.print("microgram/m^3, PM10: ");
-    Serial.print(pm10);
-    Serial.println("microgram/m^3");
+    Serial.print("PM2.5: "); Serial.print(pm25); Serial.println("microgram/m^3");
+    Serial.print("PM10: "); Serial.print(pm10); Serial.println("microgram/m^3");
 
     // Read Photosensor
     light = analogRead(photoPin);
-    Serial.print("Light: ");
-    Serial.println(light);
-
+    Serial.print("Light: "); Serial.println(light);
 
     Serial.println("---");
     dataReadTime = millis();
