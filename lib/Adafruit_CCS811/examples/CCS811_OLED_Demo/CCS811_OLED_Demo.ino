@@ -2,21 +2,15 @@
  * (We used a Feather + OLED FeatherWing)
  */
  
-#if defined(PARTICLE)
- SYSTEM_THREAD(ENABLED)
- #warn "SSD1306 library needs to be imported!"
-#else
- #include <SPI.h>
- #include <Wire.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
 
- #include <Adafruit_GFX.h>
- #include <Adafruit_SSD1306.h>
-#endif
-
+#include <Adafruit_SSD1306.h>
 #include "Adafruit_CCS811.h"
 
-Adafruit_CCS811  ccs;
-Adafruit_SSD1306 display(-1); // no RESET pin
+Adafruit_CCS811 ccs;
+Adafruit_SSD1306 display = Adafruit_SSD1306();
 
 void setup() {  
   Serial.begin(115200);

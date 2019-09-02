@@ -51,7 +51,7 @@ int pm10;
 int light;
 
 // Limits
-int eco2ValidMin = 400;
+int eco2ValidMin = 200;
 int eco2ValidMax = 8192;
 int tvocValidMin = 0;
 int tvocValidMax = 1187;
@@ -125,14 +125,14 @@ void loop() {
           Serial.print("CO2: "); Serial.print(eco2); Serial.println("ppm");
         }
         else {
-          Serial.print("CO2 reading out of bounds: "); Serial.println(tempCo2);
+          Serial.print("CO2 reading out of bounds: "); Serial.println(eco2_temp);
         }
         if(tvocValidMin <= tvoc_temp && tvoc_temp <= tvocValidMax) {
           tvoc = tvoc_temp;
           Serial.print("TVOC: "); Serial.print(tvoc); Serial.println("ppb");
         }
         else {
-          Serial.print("TVOC reading out of bounds: "); Serial.println(tempCo2);
+          Serial.print("TVOC reading out of bounds: "); Serial.println(tvoc_temp);
         }
       }
       else {
