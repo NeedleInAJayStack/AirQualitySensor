@@ -1,37 +1,15 @@
-// CCS811 Wiring
-//
-// Vin <-> 3V3
-// GND <-> GND
-// SCL <-> I2C clock pin
-// SDA <-> I2C data pin
-// WAKE <-> GND
-//
-// SI7021 Wiring
-//
-// Vin <-> 3V3
-// GND <-> GND
-// SCL <-> I2C clock pin
-// SDA <-> I2C data pin
-//
-// HPMA Wiring
-//
-// Vcc (2) <-> USB
-// TX (6) <-> RX
-// RX (7) <-> TX
-// GND (8) <-> GND
-//
-// Photosensor
-// Short pin <-> 3V3
-// Long pin <-> A5, GND(through 220 Ohm resistor)
+// See readme for wiring configuration
 
+#include <Adafruit_Sensor.h>
 #include "Adafruit_CCS811.h"
 #include "Adafruit_Si7021.h"
 #include "hpma115.h"
+#include "Adafruit_TSL2591.h"
 
 static Adafruit_Si7021 si7021 = Adafruit_Si7021();
 static Adafruit_CCS811 ccs811 = Adafruit_CCS811();
 static HPMA115 hpma115 = HPMA115();
-static int photoPin = A5;
+static Adafruit_TSL2591 tsl2591 = Adafruit_TSL2591(2591);
 
 // Record last-read and update intervals
 long dataReadTime;
@@ -70,12 +48,12 @@ void setup() {
   Particle.variable("pm10", pm10);
   Particle.variable("light", light);
 
-  // Setup si7021
+  // Setup SI7021
   si7021.begin();
   temperature = si7021.readTemperature();
   humidity = si7021.readHumidity();
 
-  // Setup ccs811
+  // Setup CCS811
   if(!ccs811.begin()){
     Serial.println("Failed to start ccs811 sensor! Please check your wiring.");
     while(1);
@@ -85,6 +63,11 @@ void setup() {
   // Set environmental data on ccs811 using si7021 readings
   ccs811.setEnvironmentalData(humidity, temperature);
   
+  // Setup TSL2591
+  tsl2591.begin();
+  tsl2591.setGain(TSL2591_GAIN_MED); // You can change this for different light situations
+  tsl2591.setTiming(TSL2591_INTEGRATIONTIME_300MS);
+
   // Set time intervals
   dataReadTime = millis();
   ccs811EnvSetTime = millis();
@@ -99,14 +82,14 @@ void serialEvent1() {
 void loop() {
   // Only read data on correct intervals
   if(millis() - dataReadTime > dataInterval) {
-    
-    // Read si7021
+
+    // Read SI7021
     temperature = si7021.readTemperature();
     humidity = si7021.readHumidity();
     Serial.print("Temperature: "); Serial.print(temperature, 2); Serial.println("C");
     Serial.print("Humidity: "); Serial.print(humidity, 2); Serial.println("%RH");
 
-    // Read ccs811
+    // Read CCS811
     if(ccs811.available()) {
       if(millis() - ccs811EnvSetTime > ccs811EnvInterval) { // Set environmental data every minute
         ccs811.setEnvironmentalData(humidity, temperature);
@@ -153,9 +136,9 @@ void loop() {
     Serial.print("PM2.5: "); Serial.print(pm25); Serial.println("microgram/m^3");
     Serial.print("PM10: "); Serial.print(pm10); Serial.println("microgram/m^3");
 
-    // Read Photosensor
-    light = analogRead(photoPin);
-    Serial.print("Light: "); Serial.println(light);
+    // Read TSL2591. Record only visible light (infrared and fullspectrum are also available)
+    light = tsl2591.getLuminosity(TSL2591_VISIBLE);
+    Serial.print("Light: "); Serial.print(light); Serial.println("lux");
 
     Serial.println("---");
     dataReadTime = millis();
