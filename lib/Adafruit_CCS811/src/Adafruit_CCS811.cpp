@@ -4,6 +4,7 @@
 /*!
     @brief  Setups the I2C interface and hardware and checks for communication.
     @param  addr Optional I2C address the sensor can be found on. Default is 0x5A
+    @param  driveMode Optional sensor mode. Default is 1sec data, or 0x01
     @returns True if device is set up, false on any failure
 */
 /**************************************************************************/

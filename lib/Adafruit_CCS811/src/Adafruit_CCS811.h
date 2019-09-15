@@ -116,7 +116,7 @@ class Adafruit_CCS811 {
 		
 		bool checkError();
 
-	private:
+	// private:
 		uint8_t _i2caddr;
 		float _tempOffset;
 		

@@ -55,7 +55,7 @@ void setup() {
 
   // Setup CCS811
   if(!ccs811.begin()){
-    Serial.println("Failed to start ccs811 sensor! Please check your wiring.");
+    Serial.println("Error setting up CCS811;");
     while(1);
   }
   // Wait for sensor to be available
@@ -91,12 +91,6 @@ void loop() {
 
     // Read CCS811
     if(ccs811.available()) {
-      if(millis() - ccs811EnvSetTime > ccs811EnvInterval) { // Set environmental data every minute
-        ccs811.setEnvironmentalData(humidity, temperature);
-        ccs811EnvSetTime = millis();
-        Serial.println("Environmental data set");
-      }
-
       uint8_t errorCode = ccs811.readData();
       if(errorCode == 0) {
         uint16_t eco2_temp = ccs811.geteCO2();
@@ -142,5 +136,13 @@ void loop() {
 
     Serial.println("---");
     dataReadTime = millis();
+
+
+    // Set CCS811 environmental data if we've reached the interval
+    if(millis() - ccs811EnvSetTime > ccs811EnvInterval) {
+      ccs811.setEnvironmentalData(humidity, temperature);
+      ccs811EnvSetTime = millis();
+      Serial.println("Environmental data set");
+    }
   }
 }
