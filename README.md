@@ -3,7 +3,7 @@
 This is a project by Jay Herron to create an indoor air quality sensor that contains the following components:
 
 * SI7021: Temp and humidity
-* CCS811: CO2 and VOC
+* SGP30: CO2 and VOC
 * HPMA115: PM2.5 and PM10
 * TSL2591: Ambient light
 
@@ -20,13 +20,12 @@ See each module's driver documentation for more information
 * SCL <-> I2C clock pin
 * SDA <-> I2C data pin
 
-### CCS811
+### SGP30
 
 * Vin <-> 3V3
 * GND <-> GND
 * SCL <-> I2C clock pin
 * SDA <-> I2C data pin
-* WAKE <-> GND
 
 ### HPMA115
 
