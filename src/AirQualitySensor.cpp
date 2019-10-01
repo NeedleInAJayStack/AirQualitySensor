@@ -2,79 +2,60 @@
 //       THIS IS A GENERATED FILE - DO NOT EDIT       //
 /******************************************************/
 
-#include "application.h"
 #line 1 "/home/jay/dev/particle/AirQualitySensor/src/AirQualitySensor.ino"
-// Prints the complete Serial buffer from the CCS811, showing the integer value of each byte.
-// You must comment out the "private" section of Adafruit_CCS811 to access the read method.
+// Example usage for Adafruit_SGP30 library.
+// This library was modified/wrapped by SJB (https://github.com/dyadica)
+// in order to work with Particle Photon & Core.
 
+ #include "Particle.h"
+ #include "Adafruit_SGP30.h"
 
-#include "Adafruit_CCS811.h"
-
-
-void setup();
+ void setup();
 void loop();
 #line 8 "/home/jay/dev/particle/AirQualitySensor/src/AirQualitySensor.ino"
-static Adafruit_CCS811 ccs811 = Adafruit_CCS811();
+Adafruit_SGP30 sgp;
 
-bool dataAvailable;
-char dataBuf[32];
+ void setup() {
+   Serial.begin(9600);
+   Serial.println("SGP30 test");
 
-void setup() {
-  Serial.begin(9600);
+   if (! sgp.begin()){
+     Serial.println("Sensor not found :(");
+     while (1);
+   }
+   Serial.print("Found SGP30 serial #");
+   Serial.print(sgp.serialnumber[0], HEX);
+   Serial.print(sgp.serialnumber[1], HEX);
+   Serial.println(sgp.serialnumber[2], HEX);
 
-  // Setup CCS811
-  if(!ccs811.begin((uint8_t)CCS811_ADDRESS, (uint8_t)CCS811_DRIVE_MODE_1SEC)){
-    Serial.println("Error setting up CCS811;");
-    while(1);
-  }
-}
+   // If you have a baseline measurement from before you can assign it to start, to 'self-calibrate'
+   // sgp.setIAQBaseline(0x8E68, 0x8F41);  // Will vary for each sensor!
+ }
 
-void loop()
-{
-  if(ccs811.available()){
+ int counter = 0;
+ void loop() {
+   if (! sgp.IAQmeasure()) {
+     Serial.println("Measurement failed");
+     return;
+   }
+   Serial.print("TVOC "); Serial.print(sgp.TVOC); Serial.print(" ppb\t");
+   Serial.print("eCO2 "); Serial.print(sgp.eCO2); Serial.println(" ppm");
+   delay(1000);
 
-    Serial.println("---");
-    Serial.println("Data from CCS811:");
+   counter++;
+   if (counter == 30) {
+     counter = 0;
 
-		uint8_t buf[8];
+     uint16_t TVOC_base, eCO2_base;
+     if (! sgp.getIAQBaseline(&eCO2_base, &TVOC_base)) {
+       Serial.println("Failed to get baseline readings");
+       return;
+     }
+     Serial.print("****Baseline values: eCO2: 0x"); Serial.print(eCO2_base, HEX);
+     Serial.print(" & TVOC: 0x"); Serial.println(TVOC_base, HEX);
+   }
+ }
 
-		//ccs811.read(CCS811_ALG_RESULT_DATA, buf, 8);
-    uint8_t num = 8;
-    uint8_t pos = 0;
-
-    while(pos < num){
-
-      uint8_t read_now = min((uint8_t)32, (uint8_t)(num - pos));
-      Wire.beginTransmission(CCS811_ADDRESS);
-      Wire.write(CCS811_ALG_RESULT_DATA + pos);
-      Wire.endTransmission();
-      Wire.requestFrom(CCS811_ADDRESS, read_now);
-
-      for(int i=0; i<read_now; i++){
-        uint8_t val = Wire.read();
-        Serial.print(i); Serial.print(": "); Serial.println(val); // Print the buffer integer
-        buf[pos] = val;
-        pos++;
-      }
-    }
-
-    Serial.println("Interpreted:");
-    uint16_t eCO2 = ((uint16_t)buf[0] << 8) | ((uint16_t)buf[1]);
-    Serial.print("eCO2"); Serial.print(": "); Serial.println(eCO2);
-
-		uint16_t TVOC = ((uint16_t)buf[2] << 8) | ((uint16_t)buf[3]);
-    Serial.print("TVOC"); Serial.print(": "); Serial.println(TVOC);
-
-    uint8_t error = buf[5];
-    Serial.print("error"); Serial.print(": "); Serial.println(error);
-
-    uint8_t current = (uint8_t)buf[6] >> 2;
-    Serial.print("current"); Serial.print(": "); Serial.println(current);
-
-    uint16_t voltage = (((uint16_t)buf[6] & 3) << 8) | ((uint16_t)buf[7]); //(((uint16_t)buf[6] << 8) | ((uint16_t)buf[7])) & 1023
-    Serial.print("voltage"); Serial.print(": "); Serial.println(voltage);
-	}
-}
 
 
 // // See readme for wiring configuration

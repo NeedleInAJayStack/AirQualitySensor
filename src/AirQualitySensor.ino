@@ -1,13 +1,13 @@
 // See readme for wiring configuration
 
 #include <Adafruit_Sensor.h>
-#include "Adafruit_CCS811.h"
+#include "Adafruit_SGP30.h"
 #include "Adafruit_Si7021.h"
 #include "hpma115.h"
 #include "Adafruit_TSL2591.h"
 
 static Adafruit_Si7021 si7021 = Adafruit_Si7021();
-static Adafruit_CCS811 ccs811 = Adafruit_CCS811();
+static Adafruit_SGP30 sgp30 = Adafruit_SGP30();
 static HPMA115 hpma115 = HPMA115();
 static Adafruit_TSL2591 tsl2591 = Adafruit_TSL2591(2591);
 
@@ -28,12 +28,6 @@ int pm25;
 int pm10;
 int light;
 
-// Limits
-int eco2ValidMin = 200;
-int eco2ValidMax = 8192;
-int tvocValidMin = 0;
-int tvocValidMax = 1187;
-
 
 
 void setup() {
@@ -53,15 +47,16 @@ void setup() {
   temperature = si7021.readTemperature();
   humidity = si7021.readHumidity();
 
-  // Setup CCS811
-  if(!ccs811.begin()){
-    Serial.println("Error setting up CCS811;");
-    while(1);
+  // Setup SGP30
+  if(!sgp30.begin()){
+    Serial.println("SGP30 sensor not found");
+    while (1);
   }
+
   // Wait for sensor to be available
-  while(!ccs811.available());
+  // while(!ccs811.available());
   // Set environmental data on ccs811 using si7021 readings
-  ccs811.setEnvironmentalData(humidity, temperature);
+  // ccs811.setEnvironmentalData(humidity, temperature);
   
   // Setup TSL2591
   tsl2591.begin();
@@ -89,37 +84,15 @@ void loop() {
     Serial.print("Temperature: "); Serial.print(temperature, 2); Serial.println("C");
     Serial.print("Humidity: "); Serial.print(humidity, 2); Serial.println("%RH");
 
-    // Read CCS811
-    if(ccs811.available()) {
-      uint8_t errorCode = ccs811.readData();
-      if(errorCode == 0) {
-        uint16_t eco2_temp = ccs811.geteCO2();
-        uint16_t tvoc_temp = ccs811.getTVOC();
-        
-        // Check validity
-        if(eco2ValidMin <= eco2_temp && eco2_temp <= eco2ValidMax) {
-          eco2 = eco2_temp;
-          Serial.print("CO2: "); Serial.print(eco2); Serial.println("ppm");
-        }
-        else {
-          Serial.print("CO2 reading out of bounds: "); Serial.println(eco2_temp);
-        }
-        if(tvocValidMin <= tvoc_temp && tvoc_temp <= tvocValidMax) {
-          tvoc = tvoc_temp;
-          Serial.print("TVOC: "); Serial.print(tvoc); Serial.println("ppb");
-        }
-        else {
-          Serial.print("TVOC reading out of bounds: "); Serial.println(tvoc_temp);
-        }
-      }
-      else {
-        Serial.print("CCS811 error code: ");
-        Serial.println(errorCode);
-      }
+    // Read SGP30
+    if (! sgp30.IAQmeasure()) {
+      Serial.println("Measurement failed");
+      return;
     }
-    else{
-      Serial.println("CCS811 Sensor Unavailable!");
-    }
+    tvoc = sgp30.TVOC;
+    eco2 = sgp30.eCO2;
+    Serial.print("TVOC: "); Serial.print(tvoc); Serial.println("ppb");
+    Serial.print("eCO2: "); Serial.print(eco2); Serial.println("ppm");
 
     // Read HPMA115
     if(hmpa115NewData) {
@@ -139,10 +112,10 @@ void loop() {
 
 
     // Set CCS811 environmental data if we've reached the interval
-    if(millis() - ccs811EnvSetTime > ccs811EnvInterval) {
-      ccs811.setEnvironmentalData(humidity, temperature);
-      ccs811EnvSetTime = millis();
-      Serial.println("Environmental data set");
-    }
+    // if(millis() - ccs811EnvSetTime > ccs811EnvInterval) {
+    //   ccs811.setEnvironmentalData(humidity, temperature);
+    //   ccs811EnvSetTime = millis();
+    //   Serial.println("Environmental data set");
+    // }
   }
 }
