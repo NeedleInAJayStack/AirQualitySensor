@@ -13,9 +13,7 @@ static Adafruit_TSL2591 tsl2591 = Adafruit_TSL2591(2591);
 
 // Record last-read and update intervals
 long dataReadTime;
-int dataInterval = 1000;
-long ccs811EnvSetTime;
-int ccs811EnvInterval = 60000;
+const int dataInterval = 1; // in seconds
 
 bool hmpa115NewData;
 
@@ -64,8 +62,7 @@ void setup() {
   tsl2591.setTiming(TSL2591_INTEGRATIONTIME_300MS);
 
   // Set time intervals
-  dataReadTime = millis();
-  ccs811EnvSetTime = millis();
+  dataReadTime = Time.now();
 }
 
 // Process HPMA115 serial events
@@ -76,7 +73,7 @@ void serialEvent1() {
 
 void loop() {
   // Only read data on correct intervals
-  if(millis() - dataReadTime > dataInterval) {
+  if(Time.now() - dataReadTime > dataInterval) {
 
     // Read SI7021
     temperature = si7021.readTemperature();
@@ -108,14 +105,6 @@ void loop() {
     Serial.print("Light: "); Serial.print(light); Serial.println("lux");
 
     Serial.println("---");
-    dataReadTime = millis();
-
-
-    // Set CCS811 environmental data if we've reached the interval
-    // if(millis() - ccs811EnvSetTime > ccs811EnvInterval) {
-    //   ccs811.setEnvironmentalData(humidity, temperature);
-    //   ccs811EnvSetTime = millis();
-    //   Serial.println("Environmental data set");
-    // }
+    dataReadTime = Time.now();
   }
 }
