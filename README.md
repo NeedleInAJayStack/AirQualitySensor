@@ -7,8 +7,6 @@ This is a project by Jay Herron to create an indoor air quality sensor that cont
 * HPMA115: PM2.5 and PM10
 * TSL2591: Ambient light
 
-It was intended for the BuildingFit office as a cool prototype/conversation starter.
-
 ## Wiring
 
 See each module's driver documentation for more information

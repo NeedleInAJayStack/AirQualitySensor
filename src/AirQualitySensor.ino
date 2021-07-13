@@ -12,9 +12,8 @@ static HPMA115 hpma115 = HPMA115();
 static Adafruit_TSL2591 tsl2591 = Adafruit_TSL2591(2591);
 
 // Record last-read and update intervals
-long dataReadTime;
-const int dataInterval = 1; // in seconds
-
+long refreshTime;
+const int refreshInterval = 1; // in seconds
 bool hmpa115NewData;
 
 // Data variables
@@ -26,7 +25,8 @@ int pm25;
 int pm10;
 int light;
 
-
+// Runtime modifiers
+bool debugMessages = false;
 
 void setup() {
   Serial.begin(9600);
@@ -40,71 +40,82 @@ void setup() {
   Particle.variable("pm10", pm10);
   Particle.variable("light", light);
 
-  // Setup SI7021
-  si7021.begin();
-  temperature = si7021.readTemperature();
-  humidity = si7021.readHumidity();
+  startupSensors();
+  setRefreshTime();
+}
 
-  // Setup SGP30
-  if(!sgp30.begin()){
+void serialEvent1() {
+  processHpma115Event();
+}
+
+void loop() {
+  if(shouldRefreshData()) {
+    refreshData();
+    if(debugMessages) {
+      printDebugMessage();
+    }
+    setRefreshTime();
+  }
+}
+
+// HELPER METHODS
+
+void startupSensors() {
+  si7021.begin();
+
+  if(!sgp30.begin()) {
     Serial.println("SGP30 sensor not found");
     while (1);
   }
 
-  // Wait for sensor to be available
-  // while(!ccs811.available());
-  // Set environmental data on ccs811 using si7021 readings
-  // ccs811.setEnvironmentalData(humidity, temperature);
-  
-  // Setup TSL2591
   tsl2591.begin();
   tsl2591.setGain(TSL2591_GAIN_MED); // You can change this for different light situations
   tsl2591.setTiming(TSL2591_INTEGRATIONTIME_300MS);
-
-  // Set time intervals
-  dataReadTime = Time.now();
 }
 
-// Process HPMA115 serial events
-void serialEvent1() {
+void setRefreshTime() {
+  refreshTime = Time.now() + refreshInterval;
+}
+
+void processHpma115Event() {
   int status = hpma115.readData();
-  if(status == 0) hmpa115NewData = true;
+  if(status == 0) {
+    hmpa115NewData = true;
+  }
 }
 
-void loop() {
-  // Only read data on correct intervals
-  if(Time.now() - dataReadTime > dataInterval) {
+bool shouldRefreshData() {
+  return Time.now() > refreshTime;
+}
 
-    // Read SI7021
-    temperature = si7021.readTemperature();
-    humidity = si7021.readHumidity();
-    Serial.print("Temperature: "); Serial.print(temperature, 2); Serial.println("C");
-    Serial.print("Humidity: "); Serial.print(humidity, 2); Serial.println("%RH");
+void refreshData() {
+  temperature = si7021.readTemperature();
+  humidity = si7021.readHumidity();
 
-    // Read SGP30
-    if (! sgp30.IAQmeasure()) {
-      Serial.println("Measurement failed");
-      return;
-    }
-    tvoc = sgp30.TVOC;
-    eco2 = sgp30.eCO2;
-    Serial.print("TVOC: "); Serial.print(tvoc); Serial.println("ppb");
-    Serial.print("eCO2: "); Serial.print(eco2); Serial.println("ppm");
-
-    // Read HPMA115
-    if(hmpa115NewData) {
-      pm25 = hpma115.getPM25();
-      pm10 = hpma115.getPM10();
-      hmpa115NewData = false;
-    }
-    Serial.print("PM2.5: "); Serial.print(pm25); Serial.println("microgram/m^3");
-    Serial.print("PM10: "); Serial.print(pm10); Serial.println("microgram/m^3");
-
-    // Read TSL2591. Record only visible light (infrared and fullspectrum are also available)
-    light = tsl2591.getLuminosity(TSL2591_VISIBLE);
-    Serial.print("Light: "); Serial.print(light); Serial.println("lux");
-
-    Serial.println("---");
-    dataReadTime = Time.now();
+  if(!sgp30.IAQmeasure()) {
+    Serial.println("SGP30 measurement failed");
+    return;
   }
+  tvoc = sgp30.TVOC;
+  eco2 = sgp30.eCO2;
+
+  if(hmpa115NewData) {
+    pm25 = hpma115.getPM25();
+    pm10 = hpma115.getPM10();
+    hmpa115NewData = false;
+  }
+
+  // Record only visible light (infrared and fullspectrum are also available)
+  light = tsl2591.getLuminosity(TSL2591_VISIBLE);
+}
+
+void printDebugMessage() {
+  Serial.print("Temperature: "); Serial.print(temperature, 2); Serial.println("C");
+  Serial.print("Humidity: "); Serial.print(humidity, 2); Serial.println("%RH");
+  Serial.print("TVOC: "); Serial.print(tvoc); Serial.println("ppb");
+  Serial.print("eCO2: "); Serial.print(eco2); Serial.println("ppm");
+  Serial.print("PM2.5: "); Serial.print(pm25); Serial.println("microgram/m^3");
+  Serial.print("PM10: "); Serial.print(pm10); Serial.println("microgram/m^3");
+  Serial.print("Light: "); Serial.print(light); Serial.println("lux");
+  Serial.println("---");
 }
