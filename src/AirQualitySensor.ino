@@ -5,11 +5,22 @@
 #include "Adafruit_Si7021.h"
 #include "hpma115.h"
 #include "Adafruit_TSL2591.h"
+#include "MQTT.h"
+#include "Secrets.h"
 
 static Adafruit_Si7021 si7021 = Adafruit_Si7021();
 static Adafruit_SGP30 sgp30 = Adafruit_SGP30();
 static HPMA115 hpma115 = HPMA115();
 static Adafruit_TSL2591 tsl2591 = Adafruit_TSL2591(2591);
+
+// MQTT
+const char mqttDomain[] = "192.168.4.100";
+const uint16_t mqttPort = 1883;
+char mqttUser[] = MQTT_USER;
+char mqttPass[] = MQTT_PASS;
+MQTT mqttClient(mqttDomain, mqttPort, callback);
+// Do nothing when a message is received
+void callback(char* topic, byte* payload, unsigned int length) {}
 
 // Record last-read and update intervals
 long refreshTime;
@@ -42,6 +53,8 @@ void setup() {
 
   startupSensors();
   setRefreshTime();
+
+  mqttClient.connect(System.deviceID(), mqttUser, mqttPass);
 }
 
 void serialEvent1() {
@@ -49,8 +62,13 @@ void serialEvent1() {
 }
 
 void loop() {
+  if (mqttClient.isConnected()) {
+    mqttClient.loop();
+  }
+
   if(shouldRefreshData()) {
     refreshData();
+    publishData();
     if(debugMessages) {
       printDebugMessage();
     }
@@ -118,4 +136,17 @@ void printDebugMessage() {
   Serial.print("PM10: "); Serial.print(pm10); Serial.println("microgram/m^3");
   Serial.print("Light: "); Serial.print(light); Serial.println("lux");
   Serial.println("---");
+}
+
+void publishData() {
+  if (mqttClient.isConnected()) {
+    String mqttDevicePath = "particle/" + System.deviceID() + "/";
+    mqttClient.publish(mqttDevicePath + "temperature", String::format("%f", temperature));
+    mqttClient.publish(mqttDevicePath + "humidity", String::format("%f", humidity));
+    mqttClient.publish(mqttDevicePath + "tvoc", String::format("%d", tvoc));
+    mqttClient.publish(mqttDevicePath + "eco2", String::format("%d", eco2));
+    mqttClient.publish(mqttDevicePath + "pm25", String::format("%d", pm25));
+    mqttClient.publish(mqttDevicePath + "pm10", String::format("%d", pm10));
+    mqttClient.publish(mqttDevicePath + "light", String::format("%d", light));
+  }
 }

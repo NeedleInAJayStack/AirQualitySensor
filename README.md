@@ -38,3 +38,12 @@ See each module's driver documentation for more information
 * GND <-> GND
 * SCL <-> I2C clock pin
 * SDA <-> I2C data pin
+
+## Development
+
+When developing on a new computer, add a `Secrets.h` file that looks like:
+
+```cpp
+#define MQTT_USER "test"
+#define MQTT_PASS "test"
+```
