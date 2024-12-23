@@ -21,6 +21,8 @@ char mqttPass[] = MQTT_PASS;
 MQTT mqttClient(mqttDomain, mqttPort, callback);
 // Do nothing when a message is received
 void callback(char* topic, byte* payload, unsigned int length) {}
+long mqttLastReconnectionAttemptTime;
+const int mqttReconnectionInterval = 60; // in seconds
 
 // Record last-read and update intervals
 long refreshTime;
@@ -35,6 +37,7 @@ int tvoc;
 int pm25;
 int pm10;
 int light;
+bool mqttConnected;
 
 // Runtime modifiers
 bool debugMessages = false;
@@ -50,11 +53,13 @@ void setup() {
   Particle.variable("pm25", pm25);
   Particle.variable("pm10", pm10);
   Particle.variable("light", light);
+  Particle.variable("mqttConnected", mqttConnected);
 
   startupSensors();
   setRefreshTime();
 
   mqttClient.connect(System.deviceID(), mqttUser, mqttPass);
+  mqttLastReconnectionAttemptTime = Time.now();
 }
 
 void serialEvent1() {
@@ -62,8 +67,13 @@ void serialEvent1() {
 }
 
 void loop() {
-  if (mqttClient.isConnected()) {
+  mqttConnected = mqttClient.isConnected();
+  if (mqttConnected) {
     mqttClient.loop();
+  } else if (Time.now() - mqttLastReconnectionAttemptTime > mqttReconnectionInterval) {
+    // If MQTT is not connected, the system should continue to function, retrying connection in the background
+    mqttClient.connect(System.deviceID(), mqttUser, mqttPass);
+    mqttLastReconnectionAttemptTime = Time.now();
   }
 
   if(shouldRefreshData()) {
