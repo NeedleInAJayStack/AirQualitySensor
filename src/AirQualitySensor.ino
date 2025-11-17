@@ -26,7 +26,7 @@ const int mqttReconnectionInterval = 60; // in seconds
 
 // Record last-read and update intervals
 long refreshTime;
-const int refreshInterval = 1; // in seconds
+const int refreshInterval = 5; // in seconds
 bool hmpa115NewData;
 
 // Data variables
