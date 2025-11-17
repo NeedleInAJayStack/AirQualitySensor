@@ -15,7 +15,7 @@ static Adafruit_TSL2591 tsl2591 = Adafruit_TSL2591(2591);
 
 // MQTT
 const char mqttDomain[] = "192.168.4.100";
-const uint16_t mqttPort = 1883;
+const uint16_t mqttPort = 31883;
 char mqttUser[] = MQTT_USER;
 char mqttPass[] = MQTT_PASS;
 MQTT mqttClient(mqttDomain, mqttPort, callback);
